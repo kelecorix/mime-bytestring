@@ -1,4 +1,6 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, PatternGuards #-}
+{-# LANGUAGE FlexibleInstances    #-}
+{-# LANGUAGE PatternGuards        #-}
+{-# LANGUAGE TypeSynonymInstances #-}
 --------------------------------------------------------------------
 -- |
 -- Module    : Codec.MIME.Pare
@@ -16,25 +18,26 @@ module Codec.MIME.Parse
   ( ParseMIME
   , parseMIMEBody
   , parseMIMEType
+  , parseMIMEMessage
   , safeParseMIMEBodyByteString
   , WithoutCRLF(..)
   ) where
 
-import Codec.MIME.Type
-import Codec.MIME.Decode
-import Control.Arrow ( first, second, (***) )
-import Data.ByteString.Search.BoyerMoore ( matchSL )
-import Data.Char
-import Data.Maybe
-import Data.List
-import Debug.Trace ( trace )
-import qualified Data.ByteString.Lazy as L
-import qualified Data.ByteString.Lazy.Char8 as L8
-import qualified Data.ByteString as S
-import qualified Data.ByteString.Char8 as S8
-import Data.ByteString.Lazy ( ByteString )
+import           Codec.MIME.Decode
+import           Codec.MIME.Type
+import           Control.Arrow                     (first, second, (***))
+import qualified Data.ByteString                   as S
+import qualified Data.ByteString.Char8             as S8
+import           Data.ByteString.Lazy              (ByteString)
+import qualified Data.ByteString.Lazy              as L
+import qualified Data.ByteString.Lazy.Char8        as L8
+import           Data.ByteString.Search.BoyerMoore (matchSL)
+import           Data.Char
+import           Data.List
+import           Data.Maybe
+import           Debug.Trace                       (trace)
 
-import System.IO.Unsafe (unsafePerformIO) -- REMOVE
+import           System.IO.Unsafe                  (unsafePerformIO)
 
 class ParseMIME a where
   splitMulti :: String -> a -> [a]
@@ -160,9 +163,9 @@ parseHeadersB str =
     --if L.null s then Right L.empty else
     let (xs, ys) = L8.break (\c-> c=='\r' || c==':') s in
     case L8.uncons ys of
-      Just (':', ys') -> Left (L8.dropWhile isHSpace xs, ys')
+      Just (':', ys')  -> Left (L8.dropWhile isHSpace xs, ys')
       Just ('\r', ys') | Just ('\n', ys'') <- L8.uncons ys' -> Right ys''
-      _ -> Right L.empty -- here one forget the whole 's' as in the string code
+      _                -> Right L.empty -- here one forget the whole 's' as in the string code
 
   parseFieldValue nm xs =
     case takeUntilCRLFB xs of
@@ -179,9 +182,9 @@ parseHeadersB' str =
     --if L.null s then Right L.empty else
     let (xs, ys) = L8.break (\c-> c=='\n' || c==':') s in
     case L8.uncons ys of
-      Just (':', ys') -> Left (L8.dropWhile isHSpace xs, ys')
+      Just (':', ys')  -> Left (L8.dropWhile isHSpace xs, ys')
       Just ('\n', ys') -> Right ys'
-      _ -> Right L.empty -- here one forget the whole 's' as in the string code
+      _                -> Right L.empty -- here one forget the whole 's' as in the string code
 
   parseFieldValue nm xs =
     case takeUntilCRLFB' xs of
@@ -208,26 +211,26 @@ splitMultiS bnd body_in =
   -- right off the bat.  No harm done if this turns out to be incorrect.
   let body = case body_in of
                 '-':'-':_ -> ('\r':'\n':body_in)
-                _ -> body_in
+                _         -> body_in
   in case untilMatch dashBoundary body of
-       Nothing           -> []
-       Just ('-':'-':_)  -> [] -- dropTrailer ?
-       Just xs           -> splitMulti1 $ dropTrailer xs
+       Nothing          -> []
+       Just ('-':'-':_) -> [] -- dropTrailer ?
+       Just xs          -> splitMulti1 $ dropTrailer xs
 
  where
   dashBoundary = "\r\n--" ++ bnd
 
   splitMulti1 xs =
     case matchUntil dashBoundary xs of
-      ("","") -> []
-      (ys,"") -> [ys]
+      ("","")        -> []
+      (ys,"")        -> [ys]
       (ys,'-':'-':_) -> [ys]
-      (ys,zs) -> ys : splitMulti1 (dropTrailer zs)
+      (ys,zs)        -> ys : splitMulti1 (dropTrailer zs)
 
   dropTrailer xs =
     case dropWhile isHSpace xs of
       '\r':'\n':xs1 -> xs1
-      xs1 -> xs1 -- hmm, flag an error?
+      xs1           -> xs1 -- hmm, flag an error?
 
 splitMultiB :: String -> ByteString -> [ByteString]
 splitMultiB bnd body_in =
@@ -285,7 +288,7 @@ splitMultiB' bnd body_in =
     let xs' = L8.dropWhile isHSpace xs in
     case L8.uncons xs' of
       Just ('\n', xs'') -> xs''
-      _ -> xs' -- hmm, flag an error?
+      _                 -> xs' -- hmm, flag an error?
 
 crlfB :: ByteString
 crlfB = L8.pack "\r\n"
@@ -306,7 +309,7 @@ parseContentType str =
  where
   toType a b = case lookupField (map toLower a) mediaTypes of
                  Just ctor -> ctor b
-                 _ -> Other a b
+                 _         -> Other a b
 
 
 parseParams :: String -> [(String,String)]
@@ -318,7 +321,7 @@ parseParams (';':xs) =
         case vs of
           '"':vs1 ->
              case break (=='"') vs1 of
-               (val,"") -> [(nm,val)]
+               (val,"")   -> [(nm,val)]
                (val,_:zs) -> (nm,val):parseParams (dropWhile isHSpace zs)
           _ -> case break (\ ch -> isHSpace ch || isTSpecial ch) vs of
                  (val,zs) -> (nm,val):parseParams (dropWhile isHSpace zs)
@@ -341,7 +344,7 @@ mediaTypes =
  where toMultipart b = fromMaybe other (lookupField (map toLower b) multipartTypes)
           where other = case b of
                           'x':'-':_ -> Extension b
-                          _ -> OtherMulti b
+                          _         -> OtherMulti b
 
 
 multipartTypes :: [(String, Multipart)]
