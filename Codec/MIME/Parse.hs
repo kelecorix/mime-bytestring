@@ -16,6 +16,7 @@
 --------------------------------------------------------------------
 module Codec.MIME.Parse
   ( ParseMIME
+  , parseMIMEHeaders
   , parseMIMEBody
   , parseMIMEType
   , parseMIMEMessage
